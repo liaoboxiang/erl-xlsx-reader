@@ -8,18 +8,19 @@
 %% ====================================================================
 %% API functions
 %% ====================================================================
--export([parse/2]).
+-export([parse/2,
+		 parse_sheet/3]).
 
 %% return -> SheetList | {error, Reason}
 %% SheetList::[SheetData|...]
 %% SheetData::{SheetName, RowDataList}
 %% RowData::[CellVal()::term()|...]
+%% 解析所有的sheet
 parse(ZipHandle, ShareStringList) ->
 	%% 所有的sheet
 	case get_all_sheet(ZipHandle) of
 		{error, Reason} -> {error, Reason};
 		SheetInfoList -> 
-			SheetInfoList,
 			Rels = ex_workbook_rels:get_rels(ZipHandle),
 			%% Rels::[{SheetId, SheetPath}|...]
 			lists:map(fun({SheetId, SheetName}) -> 
@@ -27,6 +28,23 @@ parse(ZipHandle, ShareStringList) ->
 							  ex_sheet:parse(ZipHandle, ShareStringList, SheetName, SheetPath)
 					  end, SheetInfoList)
 	end.
+
+parse_sheet(ZipHandle, ShareStringList, SheetNameList) ->
+	%% 所有的sheet
+	case get_all_sheet(ZipHandle) of
+		{error, Reason} -> {error, Reason};
+		SheetInfoList -> 
+			SheetInfoList1 = lists:filter(fun({_SheetId, SheetName}) -> 
+												  lists:member(SheetName, SheetNameList) 
+										  end, SheetInfoList),
+			Rels = ex_workbook_rels:get_rels(ZipHandle),
+			%% Rels::[{SheetId, SheetPath}|...]
+			lists:map(fun({SheetId, SheetName}) -> 
+							  SheetPath = math_path_from_rels(SheetId, Rels),
+							  ex_sheet:parse(ZipHandle, ShareStringList, SheetName, SheetPath)
+					  end, SheetInfoList1)
+	end.
+	
 
 math_path_from_rels(SheetId, Rels) ->
 	{_, SheetPath} = lists:keyfind(SheetId, 1, Rels),
